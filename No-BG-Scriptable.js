@@ -74,17 +74,43 @@ if (config.runsInWidget) {
 
 	// Prompt for widget size.
 	message = "What size of widget are you creating?"
-	const sizes = {small: "Small", medium: "Medium", large: "Large", all: "All"
+	const sizes = {small: "Small", medium: "Medium", large: "Large", all: "All"}
 	const sizeOptions = [sizes.small, sizes.medium, sizes.large, sizes.all]
 	const size = (await generateAlert(message,sizeOptions)).value
-	if (size == 'all') {
-		sizes.forEach((ksiz,vsiz)=>{
-			if (vsiz != "All") {
-				// loop through, generating all sizes and positions
-				// and save in Scriptable documents dir/cache/ghost
-				
+	if (size == sizes.all) {
+		// Ask which folder under cache/ to save into.
+		const folderAlert = new Alert()
+		folderAlert.message = "Save backgrounds to which folder in Scriptable documents/cache/?"
+		folderAlert.addTextField("folder", "ghost")
+		folderAlert.addAction("Save")
+		await folderAlert.presentAlert()
+		const folder = folderAlert.textFieldValue(0).trim() || "ghost"
+		const ghostDir = files.joinPath(files.documentsDirectory(), "cache/" + folder)
+		if (!files.fileExists(ghostDir)) files.createDirectory(ghostDir, true)
+		
+		// Name slices like no-background.js: <device>-<appearance>-<size>-<position>.png
+		const deviceId = `${Device.model()}_${Device.name()}`
+			.replace(/[^a-zA-Z0-9\-\_]/, "")
+			.toLowerCase()
+		const appearance = Color.dynamic(Color.white(), Color.black()).red ? "light" : "dark"
+		const allPositions = {
+			small: ["top left","top right","middle left","middle right","bottom left","bottom right"],
+			medium: ["top","middle","bottom"],
+			large: ["top","bottom"]
+		}
+		let count = 0
+		for (const [key, keyPositions] of Object.entries(allPositions)) {
+			for (const pos of keyPositions) {
+				// Large "bottom" sits in the middle row, as in no-background.js.
+				const cropPos = (key == "large" && pos == "bottom") ? "middle" : pos
+				const cropped = cropImage(img, phone, sizes[key], cropPos)
+				const name = `${deviceId}-${appearance}-${key}-${pos.replace(" ", "-")}.png`
+				files.write(files.joinPath(ghostDir, name), Data.fromPNG(cropped))
+				count++
 			}
-		})
+		}
+		message = "Saved " + count + " widget backgrounds to " + ghostDir
+		await generateAlert(message,["OK"])
 	} else {
 		// Prompt for position.
 		message = "What position will it be in?"
@@ -102,19 +128,8 @@ if (config.runsInWidget) {
 		}
 		const position = (await generateAlert(message,positions)).key
 	
-		// Determine image crop based on the size and position.
-		const crop = { 
-			w: (size == sizes.small ? phone.small : phone.medium),
-			h: (size == sizes.large ? phone.large : phone.small),
-			x: (size == sizes.small ? phone[position.split(" ")[1]] : phone.left),
-			y: phone[position.toLowerCase().split(" ")[0]]
-		}
-		
 		// Crop the image.
-		const draw = new DrawContext()
-		draw.size = new Size(crop.w, crop.h)
-		draw.drawImageAtPoint(img,new Point(-crop.x, -crop.y))	
-		img = draw.getImage()
+		img = cropImage(img, phone, size, position)
 		
 		// Finalize the widget.
 		message = "Your widget background is ready. Would you like to use it as this script's background, or export the image?"
@@ -131,6 +146,21 @@ if (config.runsInWidget) {
 		}
 	}
 	Script.complete()
+}
+
+// Crop the screenshot to the widget at the given size and position.
+function cropImage(img, phone, size, position) {
+	const isSmall = size == "Small"
+	const crop = { 
+		w: (isSmall ? phone.small : phone.medium),
+		h: (size == "Large" ? phone.large : phone.small),
+		x: (isSmall ? phone[position.toLowerCase().split(" ")[1]] : phone.left),
+		y: phone[position.toLowerCase().split(" ")[0]]
+	}
+	const draw = new DrawContext()
+	draw.size = new Size(crop.w, crop.h)
+	draw.drawImageAtPoint(img,new Point(-crop.x, -crop.y))	
+	return draw.getImage()
 }
 
 // Generate an alert with the provided array of options.

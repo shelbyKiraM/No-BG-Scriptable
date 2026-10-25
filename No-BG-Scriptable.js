@@ -78,21 +78,34 @@ if (config.runsInWidget) {
 	const sizeOptions = [sizes.small, sizes.medium, sizes.large, sizes.all]
 	const size = (await generateAlert(message,sizeOptions)).value
 	if (size == sizes.all) {
-		// Loop through every size and position, saving each crop
-		// in Scriptable documents dir/cache/ghost.
-		const ghostDir = files.joinPath(files.documentsDirectory(), "cache/ghost")
+		// Ask which folder under cache/ to save into.
+		const folderAlert = new Alert()
+		folderAlert.message = "Save backgrounds to which folder in Scriptable documents/cache/?"
+		folderAlert.addTextField("folder", "ghost")
+		folderAlert.addAction("Save")
+		await folderAlert.presentAlert()
+		const folder = folderAlert.textFieldValue(0).trim() || "ghost"
+		const ghostDir = files.joinPath(files.documentsDirectory(), "cache/" + folder)
 		if (!files.fileExists(ghostDir)) files.createDirectory(ghostDir, true)
+		
+		// Name slices like no-background.js: <device>-<appearance>-<size>-<position>.png
+		const deviceId = `${Device.model()}_${Device.name()}`
+			.replace(/[^a-zA-Z0-9\-\_]/, "")
+			.toLowerCase()
+		const appearance = Color.dynamic(Color.white(), Color.black()).red ? "light" : "dark"
 		const allPositions = {
 			small: ["top left","top right","middle left","middle right","bottom left","bottom right"],
 			medium: ["top","middle","bottom"],
-			large: ["top","middle"]
+			large: ["top","bottom"]
 		}
 		let count = 0
 		for (const [key, keyPositions] of Object.entries(allPositions)) {
 			for (const pos of keyPositions) {
-				const cropped = cropImage(img, phone, sizes[key], pos)
-				const name = key + "-" + pos.replace(" ", "-") + ".jpg"
-				files.writeImage(files.joinPath(ghostDir, name), cropped)
+				// Large "bottom" sits in the middle row, as in no-background.js.
+				const cropPos = (key == "large" && pos == "bottom") ? "middle" : pos
+				const cropped = cropImage(img, phone, sizes[key], cropPos)
+				const name = `${deviceId}-${appearance}-${key}-${pos.replace(" ", "-")}.png`
+				files.write(files.joinPath(ghostDir, name), Data.fromPNG(cropped))
 				count++
 			}
 		}

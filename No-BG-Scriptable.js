@@ -78,15 +78,9 @@ if (config.runsInWidget) {
 	const sizeOptions = [sizes.small, sizes.medium, sizes.large, sizes.all]
 	const size = (await generateAlert(message,sizeOptions)).value
 	if (size == sizes.all) {
-		// Ask which folder under cache/ to save into.
-		const folderAlert = new Alert()
-		folderAlert.message = "Save backgrounds to which folder in Scriptable documents/cache/?"
-		folderAlert.addTextField("folder", "ghost")
-		folderAlert.addAction("Save")
-		await folderAlert.presentAlert()
-		const folder = folderAlert.textFieldValue(0).trim() || "ghost"
-		const ghostDir = files.joinPath(files.documentsDirectory(), "cache/" + folder)
-		if (!files.fileExists(ghostDir)) files.createDirectory(ghostDir, true)
+		// Let user pick the folder to save into.
+		await generateAlert("Pick the folder to save the widget backgrounds into.",["Choose Folder"])
+		const ghostDir = await DocumentPicker.openFolder()
 		
 		// Name slices like no-background.js: <device>-<appearance>-<size>-<position>.png
 		const deviceId = `${Device.model()}_${Device.name()}`

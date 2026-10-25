@@ -74,17 +74,30 @@ if (config.runsInWidget) {
 
 	// Prompt for widget size.
 	message = "What size of widget are you creating?"
-	const sizes = {small: "Small", medium: "Medium", large: "Large", all: "All"
+	const sizes = {small: "Small", medium: "Medium", large: "Large", all: "All"}
 	const sizeOptions = [sizes.small, sizes.medium, sizes.large, sizes.all]
 	const size = (await generateAlert(message,sizeOptions)).value
-	if (size == 'all') {
-		sizes.forEach((ksiz,vsiz)=>{
-			if (vsiz != "All") {
-				// loop through, generating all sizes and positions
-				// and save in Scriptable documents dir/cache/ghost
-				
+	if (size == sizes.all) {
+		// Loop through every size and position, saving each crop
+		// in Scriptable documents dir/cache/ghost.
+		const ghostDir = files.joinPath(files.documentsDirectory(), "cache/ghost")
+		if (!files.fileExists(ghostDir)) files.createDirectory(ghostDir, true)
+		const allPositions = {
+			small: ["top left","top right","middle left","middle right","bottom left","bottom right"],
+			medium: ["top","middle","bottom"],
+			large: ["top","middle"]
+		}
+		let count = 0
+		for (const [key, keyPositions] of Object.entries(allPositions)) {
+			for (const pos of keyPositions) {
+				const cropped = cropImage(img, phone, sizes[key], pos)
+				const name = key + "-" + pos.replace(" ", "-") + ".jpg"
+				files.writeImage(files.joinPath(ghostDir, name), cropped)
+				count++
 			}
-		})
+		}
+		message = "Saved " + count + " widget backgrounds to " + ghostDir
+		await generateAlert(message,["OK"])
 	} else {
 		// Prompt for position.
 		message = "What position will it be in?"
@@ -102,19 +115,8 @@ if (config.runsInWidget) {
 		}
 		const position = (await generateAlert(message,positions)).key
 	
-		// Determine image crop based on the size and position.
-		const crop = { 
-			w: (size == sizes.small ? phone.small : phone.medium),
-			h: (size == sizes.large ? phone.large : phone.small),
-			x: (size == sizes.small ? phone[position.split(" ")[1]] : phone.left),
-			y: phone[position.toLowerCase().split(" ")[0]]
-		}
-		
 		// Crop the image.
-		const draw = new DrawContext()
-		draw.size = new Size(crop.w, crop.h)
-		draw.drawImageAtPoint(img,new Point(-crop.x, -crop.y))	
-		img = draw.getImage()
+		img = cropImage(img, phone, size, position)
 		
 		// Finalize the widget.
 		message = "Your widget background is ready. Would you like to use it as this script's background, or export the image?"
@@ -131,6 +133,21 @@ if (config.runsInWidget) {
 		}
 	}
 	Script.complete()
+}
+
+// Crop the screenshot to the widget at the given size and position.
+function cropImage(img, phone, size, position) {
+	const isSmall = size == "Small"
+	const crop = { 
+		w: (isSmall ? phone.small : phone.medium),
+		h: (size == "Large" ? phone.large : phone.small),
+		x: (isSmall ? phone[position.toLowerCase().split(" ")[1]] : phone.left),
+		y: phone[position.toLowerCase().split(" ")[0]]
+	}
+	const draw = new DrawContext()
+	draw.size = new Size(crop.w, crop.h)
+	draw.drawImageAtPoint(img,new Point(-crop.x, -crop.y))	
+	return draw.getImage()
 }
 
 // Generate an alert with the provided array of options.

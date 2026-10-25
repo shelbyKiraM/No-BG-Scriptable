@@ -222,15 +222,16 @@ function phoneSizes(inputHeight) {
 				middle: 912,
 				bottom: 1548
 			},
+			// Measured in iOS 27.
 			notext: {
-				small: 530,
-				medium: 1138,
-				large: 1136,
-				left: 91,
-				right: 699,
-				top: 276,
-				middle: 882,
-				bottom: 1488
+				small: 550,
+				medium: 1170,
+				large: 1170,
+				left: 75,
+				right: 695,
+				top: 282,
+				middle: 900,
+				bottom: 1518
 			} 
 		},
 		
